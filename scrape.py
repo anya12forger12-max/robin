@@ -4,7 +4,8 @@ import threading
 import logging
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from urllib.parse import urlparse
+from urllib.parse import urljoin
+from url_safety import is_safe_onion_url
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -86,11 +87,12 @@ def scrape_single(url_data, rotate=False, rotate_interval=5, control_port=9051, 
     if not url:
         return "", title
 
-    parsed_url = urlparse(url)
-    if parsed_url.scheme not in ("http", "https"):
+    # Robin is an onion-only tool. Reject userinfo tricks such as
+    # ``http://site.onion@169.254.169.254/`` and never fall back to a direct
+    # session: that would bypass Tor and expose the operator's real IP.
+    if not is_safe_onion_url(url):
+        _logger.debug("Refusing to scrape unsafe URL: %s", url)
         return url, title
-
-    use_tor = (urlparse(url).hostname or "").lower().endswith(".onion")
 
     headers = {
         "User-Agent": random.choice(USER_AGENTS),
@@ -99,13 +101,26 @@ def scrape_single(url_data, rotate=False, rotate_interval=5, control_port=9051, 
 
     response = None
     try:
-        session = _get_session(use_tor=use_tor)
-        if use_tor:
-            # Increased timeout for Tor latency
-            response = session.get(url, headers=headers, timeout=(10, 45), stream=True)
+        session = _get_session(use_tor=True)
+        current = url
+        for _ in range(6):
+            response = session.get(
+                current, headers=headers, timeout=(10, 45), stream=True,
+                allow_redirects=False,
+            )
+            location = response.headers.get('Location')
+            if response.status_code not in (301, 302, 303, 307, 308) or not location:
+                break
+            target = urljoin(current, location)
+            response.close()
+            response = None
+            if not is_safe_onion_url(target):
+                _logger.debug("Refusing redirect outside onion services: %s", target)
+                return url, title
+            current = target
         else:
-            # Fallback for clearweb if needed, though tool focuses on dark web
-            response = session.get(url, headers=headers, timeout=(5, 25), stream=True)
+            _logger.debug("Too many redirects while scraping %s", url)
+            return url, title
 
         if response.status_code == 200:
             content_type = (response.headers.get("Content-Type") or "").lower()

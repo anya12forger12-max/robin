@@ -4,6 +4,7 @@ import json
 import os
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from url_safety import extract_onion_link
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -77,12 +78,14 @@ def fetch_search_results(endpoint, query):
                 try:
                     href = a['href']
                     title = a.get_text(strip=True)
-                    # Extract onion links
-                    link = re.findall(r'https?:\/\/[a-z0-9\.]+\.onion.*', href)
-                    if len(link) != 0:
+                    # Only accept URLs whose *connection host* is an onion
+                    # service. A regex over the raw href would accept
+                    # ``http://x.onion@127.0.0.1/`` (userinfo confusion).
+                    link = extract_onion_link(href)
+                    if link is not None:
                         # Basic filtering to avoid self-referential links
-                        if "search" not in link[0] and len(title) > 3:
-                            links.append({"title": title, "link": link[0]})
+                        if "search" not in link and len(title) > 3:
+                            links.append({"title": title, "link": link})
                 except:
                     continue
             return links
