@@ -1,121 +1,63 @@
-<div align="center">
-   <img src=".github/assets/logo.png" alt="Logo" width="300">
-   <br><a href="https://github.com/apurvsinghgautam/robin/actions/workflows/release.yml"><img alt="Release" src="https://github.com/apurvsinghgautam/robin/actions/workflows/release.yml/badge.svg"></a> <a href="https://github.com/apurvsinghgautam/robin/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/apurvsinghgautam/robin"></a> <a href="https://hub.docker.com/r/apurvsg/robin"><img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/apurvsg/robin"></a>
-   <h1>Robin: AI-Powered Dark Web OSINT Tool</h1>
+# Robin — AI-assisted dark-web OSINT investigations
 
-   <p>Robin is an AI-powered tool for conducting dark web OSINT investigations. It leverages LLMs to refine queries, filter search results from dark web search engines, and provide an investigation summary.</p>
-   <a href="#installation">Installation</a> &bull; <a href="#contributing">Contributing</a> &bull; <a href="#acknowledgements">Acknowledgements</a><br><br>
-</div>
+**A Streamlit workbench that refines a query, searches Tor-indexed sites through multiple engines, filters the results and produces a sourced investigation summary.**
 
-![Demo](.github/assets/screen-ui.png)
+> **Provenance.** This public repository is a restored snapshot of the upstream [apurvsinghgautam/robin](https://github.com/apurvsinghgautam/robin) project by **Apurv Singh Gautam**. The application, design and documentation are that author's work, **not original work by this account**; MIT © 2025 Apurv Singh Gautam, preserved in [LICENSE](LICENSE). Badges in the original README pointed to the upstream CI, releases and Docker image; they are not claims about this mirror and have been omitted here.
 
+## How it works
 
-## Architecture
-![Workflow](.github/assets/robin-workflow.png)
+Robin separates the investigation pipeline into three parts visible in the source:
 
----
+- **Search** (`search.py`) queries a list of Tor-indexed search engines through a local SOCKS proxy at `127.0.0.1:9050`, parses `.onion` result links and deduplicates them.
+- **LLM layer** (`llm.py`, `llm_utils.py`) refines the user's question, filters results for relevance and writes a structured summary with a strict-grounding preset.
+- **Web UI** (`ui.py`) is a Streamlit app that orchestrates the run, shows sources and findings, saves investigations to `investigations/`, and supports follow-up questions grounded in the saved investigation data.
+
+![Robin UI](.github/assets/screen-ui.png)
 
 ## Features
 
-- ⚙️ **Modular Architecture** – Clean separation between search, scrape, and LLM workflows.
-- 🤖 **Multi-Model Support** – Easily switch between OpenAI, Claude, Gemini, Ollama, or any OpenAI-compatible API (LM Studio, llama.cpp, Groq, etc.).
-- 🌐 **Web UI** – Streamlit-based interface for interactive investigations.
-- 💬 **Conversational Follow-ups** – Ask grounded follow-up questions about an investigation without re-running the search — answered from that investigation's own data.
-- 🔀 **One-Click Pivots** – Suggested follow-up queries surfaced from the findings; click one to launch a fresh investigation.
-- 🐳 **Docker-Ready** – Recommended Docker deployment for clean, isolated usage.
-- 📝 **Custom Reporting** – Save investigation output to file for reporting or further analysis.
-- 🧩 **Extensible** – Easy to plug in new search engines, models, or output formats.
+- Modular search / scrape / LLM workflow, with parallel engine queries
+- Model choice across OpenAI, Anthropic, Gemini, Ollama, OpenRouter, llama.cpp and any OpenAI-compatible endpoint entered in the **Custom API Provider** sidebar
+- Streamlit interface with provider health checks and a dossier-style investigation view
+- Saved investigations with a **Past Investigations** panel; reload a run and ask grounded follow-up questions without re-searching
+- Suggested one-click pivots that start a fresh investigation from a finding
+- Markdown-ready notes, findings and source lists for reporting
+- Docker image and Compose-friendly deployment inherited from upstream (`apurvsg/robin`); development mode runs directly from Python
 
----
-
-## ⚠️ Disclaimer
-> This tool is intended for educational and lawful investigative purposes only. Accessing or interacting with certain dark web content may be illegal depending on your jurisdiction. The author is not responsible for any misuse of this tool or the data gathered using it.
->
-> Use responsibly and at your own risk. Ensure you comply with all relevant laws and institutional policies before conducting OSINT investigations.
->
-> Additionally, Robin leverages third-party APIs (including LLMs). Be cautious when sending potentially sensitive queries, and review the terms of service for any API or model provider you use.
+![Workflow](.github/assets/robin-workflow.png)
 
 ## Installation
-> [!NOTE]
-> The tool needs Tor to do the searches. You can install Tor using `apt install tor` on Linux/Windows(WSL) or `brew install tor` on Mac. Once installed, confirm if Tor is running in the background.
 
-> [!TIP]
-> You can provide your LLM of choice API key by either creating .env file (refer to sample env file in the repo) or by setting env variables in PATH.
->
-> For Ollama, provide `http://host.docker.internal:11434` as `OLLAMA_BASE_URL` in your env if running using docker method or `http://127.0.0.1:11434` for other methods. You might need to serve Ollama on 0.0.0.0 depending on your OS. You can do by running `OLLAMA_HOST=0.0.0.0 ollama serve &` in your terminal.
->
-> For any other OpenAI-compatible provider (LM Studio, llama.cpp, Groq, etc.), use the **🔌 Custom API Provider** expander in the sidebar — no `.env` changes required. Enter the base URL, an optional API key, and optionally a model name if the provider doesn't expose `/v1/models` for auto-discovery.
+Tor must be installed and running before you start; Robin uses the SOCKS port `9050` on localhost.
 
-### Docker [Recommended]
-
-- Pull the latest Robin docker image
 ```bash
+# Docker (upstream image)
 docker pull apurvsg/robin:latest
-```
-
-- Run the docker image as:
-```bash
 docker run --rm \
-   -v "$(pwd)/.env:/app/.env" \
-   --add-host=host.docker.internal:host-gateway \
-   -p 8501:8501 \
-   apurvsg/robin:latest
+  -v "$(pwd)/.env:/app/.env" \
+  --add-host=host.docker.internal:host-gateway \
+  -p 8501:8501 \
+  apurvsg/robin:latest
 ```
 
-> [!TIP]
-> To persist saved investigations across Docker restarts, mount a local directory:
-> ```bash
-> docker run --rm \
->    -v "$(pwd)/.env:/app/.env" \
->    -v "$(pwd)/investigations:/app/investigations" \
->    --add-host=host.docker.internal:host-gateway \
->    -p 8501:8501 \
->    apurvsg/robin:latest
-> ```
-> Investigations are saved to the `investigations/` folder in your working directory and can be loaded from the **Past Investigations** panel in the sidebar.
+Mount `$(pwd)/investigations:/app/investigations` as well to keep saved investigations across restarts. Open `http://localhost:8501`.
 
-- Open your browser and navigate to `http://localhost:8501`
-
-### Using Python (Development Version)
-
-- With `Python 3.10+` and Tor installed, run the following:
+For development with Python 3.10+:
 
 ```bash
+git clone https://github.com/anya12forger12-max/robin.git
+cd robin
+cp .env.example .env       # fill in only the provider keys you will use; never commit .env
 pip install -r requirements.txt
 streamlit run ui.py
 ```
 
-- Open your browser and navigate to `http://localhost:8501`
+`.env.example` contains placeholder names only. For Ollama, use `http://127.0.0.1:11434` locally or `http://host.docker.internal:11434` from Docker; custom OpenAI-compatible providers can be configured in the sidebar without editing `.env`.
 
----
+## Responsible use
 
-## Contributing
+This tool is for **lawful, authorised OSINT and education only**. Accessing or interacting with some dark-web content is illegal in some jurisdictions, and information gathering can itself be regulated. Do not investigate people, systems or organisations without a legitimate basis and applicable permissions. Queries and results are sent to third-party LLM providers when a hosted model is selected — review their terms and avoid sensitive data. See the upstream disclaimer for the author's full position.
 
-Contributions are welcome! Please feel free to submit a Pull Request if you have major feature updates.
+## Credits and license
 
-- Fork the repository
-- Create your feature branch (git checkout -b feature/amazing-feature)
-- Commit your changes (git commit -m 'Add some amazing feature')
-- Push to the branch (git push origin feature/amazing-feature)
-- Open a Pull Request
-
-Open an Issue for any of these situations:
-- If you spot a bug or bad code
-- If you have a feature request idea
-- If you have questions or doubts about usage
-- If you have minor code changes
-
----
-
-## Acknowledgements
-
-- Idea inspiration from [Thomas Roccia](https://x.com/fr0gger_) and his demo of [Perplexity of the Dark Web](https://x.com/fr0gger_/status/1908051083068645558).
-- Tools inspiration from my [OSINT Tools for the Dark Web](https://github.com/apurvsinghgautam/dark-web-osint-tools) repository.
-- LLM Prompt inspiration from [OSINT-Assistant](https://github.com/AXRoux/OSINT-Assistant) repository.
-- Logo Design by my friend [Tanishq Rupaal](https://github.com/Tanq16/)
-
-
-
-
-
-
+Upstream project: [github.com/apurvsinghgautam/robin](https://github.com/apurvsinghgautam/robin), © 2025 Apurv Singh Gautam, [MIT licensed](LICENSE). Upstream acknowledgements: idea inspiration from [Thomas Roccia](https://x.com/fr0gger_) and his Perplexity-of-the-Dark-Web demo; the [dark-web OSINT tools](https://github.com/apurvsinghgautam/dark-web-osint-tools) list; prompt ideas from [OSINT-Assistant](https://github.com/AXRoux/OSINT-Assistant); logo by [Tanishq Rupaal](https://github.com/Tanq16/). This snapshot preserves those credits and claims no original authorship.
