@@ -61,3 +61,14 @@ This tool is for **lawful, authorised OSINT and education only**. Accessing or i
 ## Credits and license
 
 Upstream project: [github.com/apurvsinghgautam/robin](https://github.com/apurvsinghgautam/robin), © 2025 Apurv Singh Gautam, [MIT licensed](LICENSE). Upstream acknowledgements: idea inspiration from [Thomas Roccia](https://x.com/fr0gger_) and his Perplexity-of-the-Dark-Web demo; the [dark-web OSINT tools](https://github.com/apurvsinghgautam/dark-web-osint-tools) list; prompt ideas from [OSINT-Assistant](https://github.com/AXRoux/OSINT-Assistant); logo by [Tanishq Rupaal](https://github.com/Tanq16/). This snapshot preserves those credits and claims no original authorship.
+
+## Quick start — 1 or 2 commands
+
+```bash
+./setup.sh          # install dependencies
+./setup.sh run      # start the project (when a run target exists)
+```
+
+`setup.sh` detects this repository's build system and installs the right toolchain
+dependencies. Use `./setup.sh test` to run the available checks. If a project has no
+standard run target, the script prints the correct command from the sections above.
